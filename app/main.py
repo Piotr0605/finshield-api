@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
+from app.routers import auth
 
 # 1. Inicjalizacja aplikacji FastAPI
 app = FastAPI(
@@ -18,6 +19,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router)
+
 
 # 3. Endpoint typu Health Check
 @app.get("/health", tags=["Infrastructure"])
@@ -33,4 +36,3 @@ async def health_check():
 @app.get("/", tags=["General"])
 async def root():
     return {"message": "Welcome to FinShield API. Go to /docs for Swagger UI."}
-    
