@@ -1,12 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.routers import auth, expenses, budget
+from app.routers import auth, expenses, budget, ai
 import app.models.budget  # noqa: F401 — rejestracja modelu dla relacji SQLAlchemy
 
 app = FastAPI(
     title="FinShield API",
-    description="Dojebany system kontroli wydatków i Multi-tenant security",
+    description="System kontroli wydatków i Multi-tenant security",
     version="1.0.0"
 )
 
@@ -23,6 +23,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(expenses.router)
 app.include_router(budget.router)  
+app.include_router(ai.router)
 
 
 @app.get("/health", tags=["Infrastructure"])

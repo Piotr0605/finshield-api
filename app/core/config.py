@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int
 
+    OPENAI_API_KEY: str
+    OPENAI_BASE_URL: str
+    AI_MODEL: str = "gemini-2.5-flash"
+
     @computed_field
     @property
     def DATABASE_URL(self) -> str:
