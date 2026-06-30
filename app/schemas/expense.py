@@ -23,3 +23,13 @@ class ExpenseOut(ExpenseBase):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+class CategorySummary(BaseModel):
+    category: str
+    total_amount: Decimal
+
+class ExpenseSummary(BaseModel):
+    total_amount: Decimal
+    categories: list[CategorySummary]
+
+    model_config = {"from_attributes": True}
