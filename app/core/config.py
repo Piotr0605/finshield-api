@@ -1,9 +1,12 @@
+from pathlib import Path  # TA LINIJKA JEST KRYTYCZNA! Duża litera 'P'
 from pydantic import computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Obliczamy absolutną ścieżkę do katalogu głównego projektu
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
 
 class Settings(BaseSettings):
-    # Pydantic automatycznie zmapuje nazwy z pliku .env (wielkość liter nie ma znaczenia)
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str
     POSTGRES_DB: str
@@ -14,15 +17,14 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int
 
-    # Dynamicznie budujemy asynchroniczny URL dla SQLAlchemy
     @computed_field
     @property
     def DATABASE_URL(self) -> str:
         return f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
 
-    # Wskazujemy Pydanticowi, skąd ma brać dane i żeby ignorował inne śmieci ze środowiska
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    # Wskazujemy bezwzględną ścieżkę do pliku .env na dysku
+    model_config = SettingsConfigDict(env_file=BASE_DIR / ".env", extra="ignore")
 
 
-# Tworzymy jedną globalną instancję ustawień (wzorzec projektowy: Singleton)
+# Globalna instancja ustawień
 settings = Settings()
