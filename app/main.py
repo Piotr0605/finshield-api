@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.routers import auth
+from app.routers import auth, expenses
 
 # 1. Inicjalizacja aplikacji FastAPI
 app = FastAPI(
@@ -20,7 +20,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
-
+app.include_router(expenses.router)
 
 # 3. Endpoint typu Health Check
 @app.get("/health", tags=["Infrastructure"])
