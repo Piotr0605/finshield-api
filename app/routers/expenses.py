@@ -39,7 +39,7 @@ async def get_expenses_summary(
     # Mapujemy surowe wiersze z bazy na obiekty Pydantica
     by_category_list = [
         CategorySummary(category=row[0], total_amount=row[1])
-        .for row in category_result.all()
+        for row in category_result.all()
     ]
 
     return ExpenseSummaryOut(

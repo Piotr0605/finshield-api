@@ -10,12 +10,12 @@ class ExpenseBase(BaseModel):
     category: str = Field(..., min_length=1, max_length=100)
 
 
-# Klient podaje tylko podstawowe info, resztę system wyciągnie z tokenu JWT
+# Klient podaje tylko podstawowe info przy tworzeniu
 class ExpenseCreate(ExpenseBase):
     pass
 
 
-# To wypluwa API do tabelki na frontendzie
+# To wypluwa API do pojedynczego wydatku
 class ExpenseOut(ExpenseBase):
     id: uuid.UUID
     organization_id: uuid.UUID
@@ -24,12 +24,16 @@ class ExpenseOut(ExpenseBase):
 
     model_config = {"from_attributes": True}
 
+
+# ==================== 📊 SCHEMATY AGREGACJI 📊 ====================
+
 class CategorySummary(BaseModel):
     category: str
     total_amount: Decimal
 
-class ExpenseSummary(BaseModel):
-    total_amount: Decimal
-    categories: list[CategorySummary]
+
+class ExpenseSummaryOut(BaseModel):
+    total_firm_amount: Decimal
+    by_category: list[CategorySummary]
 
     model_config = {"from_attributes": True}
