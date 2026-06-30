@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, status
-from sqlalchemy import func  # 🔥 POTRZEBNE DO func.sum()
+from fastapi import APIRouter, Depends, status, HTTPException
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -7,7 +7,8 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.models.user import User
 from app.models.expense import Expense
-from app.schemas.expense import ExpenseCreate, ExpenseOut, ExpenseSummaryOut, CategorySummary  # 🔥 NOWE IMPORTY
+from app.models.budget import Budget
+from app.schemas.expense import ExpenseCreate, ExpenseOut, ExpenseSummaryOut, CategorySummary
 
 router = APIRouter(prefix="/expenses", tags=["Expenses"])
 
@@ -26,7 +27,6 @@ async def get_expenses_summary(
         select(func.sum(Expense.amount))
         .where(Expense.organization_id == current_user.organization_id)
     )
-    # scalar() wyciągnie pojedynczą wartość. Jeśli firma nie ma wydatków, zwróci None, więc dajemy 0
     total_amount = total_result.scalar() or 0.00
 
     # 2. Wyliczamy sumy pogrupowane po kategoriach (GROUP BY)
@@ -36,7 +36,7 @@ async def get_expenses_summary(
         .group_by(Expense.category)
     )
     
-    # Mapujemy surowe wiersze z bazy na obiekty Pydantica
+    # Mapujemy surowe wiersze z bazy na obiekty Pydantica (BEZ ZBĘDNYCH KROPEK!)
     by_category_list = [
         CategorySummary(category=row[0], total_amount=row[1])
         for row in category_result.all()
@@ -54,25 +54,34 @@ async def create_expense(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    new_expense = Expense(
-        **expense_data.model_dump(),
-        organization_id=current_user.organization_id,
-        user_id=current_user.id
+    """
+    Tworzy nowy wydatek, ale najpierw sprawdza asynchronicznie,
+    czy nie przekroczymy sufitu zdefiniowanego w budżecie firmy.
+    """
+    # ==================== 🛡️ STRAŻNIK BUDŻETU 🛡️ ====================
+    # 1. Sprawdzamy, czy istnieje limit dla tej kategorii w organizacji
+    budget_query = await db.execute(
+        select(Budget).where(
+            Budget.organization_id == current_user.organization_id,
+            Budget.category == expense_data.category
+        )
     )
-    db.add(new_expense)
-    await db.commit()
-    await db.refresh(new_expense)
-    return new_expense
+    budget = budget_query.scalar_one_or_none()
 
+    if budget:
+        # 2. Sumujemy dotychczasowe wydatki z tej kategorii
+        current_spent_query = await db.execute(
+            select(func.sum(Expense.amount)).where(
+                Expense.organization_id == current_user.organization_id,
+                Expense.category == expense_data.category
+            )
+        )
+        current_spent = current_spent_query.scalar() or 0.00
 
-@router.get("/", response_model=list[ExpenseOut])
-async def list_expenses(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    result = await db.execute(
-        select(Expense)
-        .where(Expense.organization_id == current_user.organization_id)
-        .order_by(Expense.created_at.desc())
-    )
-    return result.scalars().all()
+        # 3. Sprawdzamy, czy nowy wydatek wepchnie nas pod lód
+        if current_spent + expense_data.amount > budget.limit_amount:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Operacja zablokowana! Przekroczysz miesięczny budżet dla kategorii '{expense_data.category}'. "
+                       f"Limit: {budget.limit_amount}"
+            )
