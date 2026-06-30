@@ -2,6 +2,8 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 from pydantic import BaseModel, Field
+from typing import Optional 
+
 
 
 class ExpenseBase(BaseModel):
@@ -37,3 +39,8 @@ class ExpenseSummaryOut(BaseModel):
     by_category: list[CategorySummary]
 
     model_config = {"from_attributes": True}
+
+class ExpenseUpdate(BaseModel):
+    title: Optional[str] = None
+    amount: Optional[Decimal] = None
+    category: Optional[str] = None

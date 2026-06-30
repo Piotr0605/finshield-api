@@ -3,6 +3,8 @@ from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.future import select
 from decimal import Decimal
+from uuid import UUID
+from app.schemas.expense import ExpenseUpdate
 import logging
 
 from app.core.database import get_db, engine  # 🔥 Importujemy engine do sesji w tle
@@ -145,3 +147,103 @@ async def list_expenses(
         .order_by(Expense.created_at.desc())
     )
     return result.scalars().all()
+
+# ==================== MIGRACJA / EDYCJA / USYWANIE ====================
+
+@router.delete("/{expense_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_expense(
+    expense_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Usuwa wydatek organizacji. Automatycznie uwalnia budżet."""
+    result = await db.execute(
+        select(Expense).where(
+            Expense.id == expense_id, 
+            Expense.organization_id == current_user.organization_id
+        )
+    )
+    expense = result.scalar_one_or_none()
+
+    if not expense:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Nie znaleziono wydatku o podanym ID w Twojej organizacji."
+        )
+
+    await db.delete(expense)
+    await db.commit()
+    return None
+
+
+@router.patch("/{expense_id}", response_model=ExpenseOut)
+async def update_expense(
+    expense_id: UUID,
+    expense_data: ExpenseUpdate,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Aktualizuje wydatek. Jeśli kwota rośnie, Strażnik Budżetu 
+    ponownie weryfikuje limity.
+    """
+    # 1. Szukamy gnoja w bazie
+    result = await db.execute(
+        select(Expense).where(
+            Expense.id == expense_id, 
+            Expense.organization_id == current_user.organization_id
+        )
+    )
+    expense = result.scalar_one_or_none()
+
+    if not expense:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Nie znaleziono wydatku o podanym ID."
+        )
+
+    # 2. Logika zabezpieczeń, jeśli użytkownik zmienia kwotę lub kategorię
+    target_category = expense_data.category or expense.category
+    target_amount = expense_data.amount if expense_data.amount is not None else expense.amount
+
+    # Sprawdzamy budżet tylko, jeśli cokolwiek z tych rzeczy się zmienia
+    if expense_data.amount is not None or expense_data.category is not None:
+        budget_query = await db.execute(
+            select(Budget).where(Budget.organization_id == current_user.organization_id, Budget.category == target_category)
+        )
+        budget = budget_query.scalar_one_or_none()
+
+        if budget:
+            # Sumujemy wydatki z tej kategorii, OMIJAJĄC aktualnie edytowany wydatek
+            spent_query = await db.execute(
+                select(func.sum(Expense.amount)).where(
+                    Expense.organization_id == current_user.organization_id,
+                    Expense.category == target_category,
+                    Expense.id != expense.id  # 🔥 Pomijamy samych siebie
+                )
+            )
+            current_spent = spent_query.scalar() or Decimal("0.00")
+
+            if current_spent + target_amount > budget.limit_amount:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Modyfikacja zablokowana! Przekroczysz budżet dla kategorii '{target_category}'."
+                )
+
+    # 3. Jeśli wszystko gra – aplikujemy zmiany przez model_dump(exclude_unset=True)
+    update_dict = expense_data.model_dump(exclude_unset=True)
+    for key, value in update_dict.items():
+        setattr(expense, key, value)
+
+    await db.commit()
+    await db.refresh(expense)
+
+    # 4. Odpalamy radar 80% w tle na nowo przeliczonych danych
+    background_tasks.add_task(
+        check_budget_threshold_background, 
+        str(current_user.organization_id), 
+        target_category
+    )
+
+    return expense
