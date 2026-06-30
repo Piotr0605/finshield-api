@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, status, HTTPException, BackgroundTasks  # 🔥 DODANE BackgroundTasks
+from fastapi import APIRouter, Depends, status, HTTPException, BackgroundTasks, Path
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.future import select
 from decimal import Decimal
 from uuid import UUID
+from typing import Annotated
 from app.schemas.expense import ExpenseUpdate
 import logging
 
@@ -16,6 +17,12 @@ from app.schemas.expense import ExpenseCreate, ExpenseOut, ExpenseSummaryOut, Ca
 
 logger = logging.getLogger("uvicorn.error")
 router = APIRouter(prefix="/expenses", tags=["Expenses"])
+
+EXPENSE_ID_PATH = Path(
+    ...,
+    description="UUID wydatku — skopiuj wartość `id` z odpowiedzi GET /expenses/",
+    examples=["3fa85f64-5717-4562-b3fc-2c963f66afa6"],
+)
 
 
 # ==================== 📡 ASYNCHRONICZNY RADAR BUDGETOWY (BACKGROUND TASK) ====================
@@ -150,9 +157,13 @@ async def list_expenses(
 
 # ==================== MIGRACJA / EDYCJA / USYWANIE ====================
 
-@router.delete("/{expense_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{expense_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={403: {"description": "Brak uprawnień — Employee nie może usuwać cudzych wydatków"}},
+)
 async def delete_expense(
-    expense_id: UUID,
+    expense_id: Annotated[UUID, EXPENSE_ID_PATH],
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -171,14 +182,24 @@ async def delete_expense(
             detail="Nie znaleziono wydatku o podanym ID w Twojej organizacji."
         )
 
+    if current_user.role != "Admin" and expense.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Nie masz prawa usuwać cudzych wydatków.",
+        )
+
     await db.delete(expense)
     await db.commit()
     return None
 
 
-@router.patch("/{expense_id}", response_model=ExpenseOut)
+@router.patch(
+    "/{expense_id}",
+    response_model=ExpenseOut,
+    responses={403: {"description": "Brak uprawnień — Employee może edytować tylko własne wpisy"}},
+)
 async def update_expense(
-    expense_id: UUID,
+    expense_id: Annotated[UUID, EXPENSE_ID_PATH],
     expense_data: ExpenseUpdate,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
@@ -201,6 +222,12 @@ async def update_expense(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Nie znaleziono wydatku o podanym ID."
+        )
+
+    if current_user.role != "Admin" and expense.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Modyfikacja zabroniona. Możesz edytować wyłącznie własne wpisy.",
         )
 
     # 2. Logika zabezpieczeń, jeśli użytkownik zmienia kwotę lub kategorię

@@ -10,7 +10,14 @@ class BudgetBase(BaseModel):
 
 
 class BudgetCreate(BudgetBase):
-    pass
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "category": "Narzedzia",
+                "limit_amount": 500.00,
+            }
+        }
+    }
 
 
 class BudgetOut(BudgetBase):

@@ -11,7 +11,12 @@ from app.schemas.budget import BudgetCreate, BudgetOut
 router = APIRouter(prefix="/budgets", tags=["Budgets"])
 
 
-@router.post("/", response_model=BudgetOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    response_model=BudgetOut,
+    status_code=status.HTTP_201_CREATED,
+    responses={403: {"description": "Brak uprawnień — tylko Admin może tworzyć budżety"}},
+)
 async def create_budget(
     budget_data: BudgetCreate,
     db: AsyncSession = Depends(get_db),
@@ -21,6 +26,12 @@ async def create_budget(
     Ustawia miesięczny limit wydatków dla konkretnej kategorii.
     Jeśli limit dla tej kategorii już istnieje – wyrzuci błąd 400.
     """
+    if current_user.role != "Admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Brak uprawnień. Tylko Administrator może definiować limity budżetowe.",
+        )
+
     # Sprawdzamy biznesowy unikalny warunek: jedna kategoria = jeden budżet w organizacji
     existing_query = await db.execute(
         select(Budget).where(

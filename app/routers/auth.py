@@ -7,18 +7,21 @@ from app.core.database import get_db
 from app.core.security import get_password_hash, verify_password, create_access_token
 from app.models.organization import Organization
 from app.models.user import User
-from app.schemas.organization import OrganizationCreate
-from app.schemas.user import UserCreate, UserOut
+from app.schemas.user import UserOut
+from app.schemas.auth import RegisterCompanyRequest, TokenOut
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
 @router.post("/register-company", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-async def register_company(company_data: OrganizationCreate, user_data: UserCreate, db: AsyncSession = Depends(get_db)):
+async def register_company(payload: RegisterCompanyRequest, db: AsyncSession = Depends(get_db)):
     """
     Tworzy nową organizację (firmę) oraz przypisuje do niej pierwszego użytkownika (Admina).
     Wszystko w jednej, asynchronicznej transakcji.
     """
+    company_data = payload.company_data
+    user_data = payload.user_data
+
     # 1. Sprawdzamy, czy firma o takiej nazwie już nie istnieje
     existing_org = await db.execute(select(Organization).where(Organization.name == company_data.name))
     if existing_org.scalar_one_or_none():
@@ -51,7 +54,7 @@ async def register_company(company_data: OrganizationCreate, user_data: UserCrea
     return new_user
 
 
-@router.post("/login")
+@router.post("/login", response_model=TokenOut)
 async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
     """
     Endpoint logowania kompatybilny ze Swagger UI OAuth2.

@@ -14,7 +14,15 @@ class ExpenseBase(BaseModel):
 
 # Klient podaje tylko podstawowe info przy tworzeniu
 class ExpenseCreate(ExpenseBase):
-    pass
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "title": "Klucz do kasety Park Tool",
+                "amount": 199.99,
+                "category": "Narzedzia",
+            }
+        }
+    }
 
 
 # To wypluwa API do pojedynczego wydatku
@@ -44,3 +52,12 @@ class ExpenseUpdate(BaseModel):
     title: Optional[str] = None
     amount: Optional[Decimal] = None
     category: Optional[str] = None
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "title": "Zaktualizowany tytuł wydatku",
+                "amount": 149.99,
+            }
+        }
+    }
