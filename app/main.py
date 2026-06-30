@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import auth, expenses, budget 
+from app.core.config import settings
+from app.routers import auth, expenses, budget
+import app.models.budget  # noqa: F401 — rejestracja modelu dla relacji SQLAlchemy
 
 app = FastAPI(
     title="FinShield API",
@@ -25,4 +27,8 @@ app.include_router(budget.router)
 
 @app.get("/health", tags=["Infrastructure"])
 async def health_check():
-    return {"status": "healthy", "database": "connected"}
+    return {
+        "status": "healthy",
+        "database_url_configured": bool(settings.DATABASE_URL),
+        "jwt_algorithm": settings.JWT_ALGORITHM,
+    }

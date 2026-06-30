@@ -86,3 +86,15 @@ async def create_expense(
                 detail=f"Operacja zablokowana! Przekroczysz miesięczny budżet dla kategorii '{expense_data.category}'. "
                        f"Limit: {budget.limit_amount}"
             )
+
+    new_expense = Expense(
+        title=expense_data.title,
+        amount=expense_data.amount,
+        category=expense_data.category,
+        organization_id=current_user.organization_id,
+        user_id=current_user.id,
+    )
+    db.add(new_expense)
+    await db.commit()
+    await db.refresh(new_expense)
+    return new_expense
