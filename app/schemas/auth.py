@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 
 from app.schemas.organization import OrganizationCreate
-from app.schemas.user import UserCreate
+from app.schemas.user import RegisterUserCreate, UserOut
 
 
 class TokenOut(BaseModel):
@@ -11,7 +11,7 @@ class TokenOut(BaseModel):
 
 class RegisterCompanyRequest(BaseModel):
     company_data: OrganizationCreate
-    user_data: UserCreate
+    user_data: RegisterUserCreate
 
     model_config = {
         "json_schema_extra": {
@@ -20,8 +20,6 @@ class RegisterCompanyRequest(BaseModel):
                 "user_data": {
                     "email": "admin@firma.pl",
                     "password": "SuperTajneHaslo123!",
-                    "role": "Admin",
-                    "organization_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
                 },
             }
         }

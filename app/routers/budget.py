@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, check_admin_role
 from app.models.user import User
 from app.models.budget import Budget
 from app.schemas.budget import BudgetCreate, BudgetOut
@@ -20,18 +20,12 @@ router = APIRouter(prefix="/budgets", tags=["Budgets"])
 async def create_budget(
     budget_data: BudgetCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(check_admin_role),
 ):
     """
     Ustawia miesięczny limit wydatków dla konkretnej kategorii.
     Jeśli limit dla tej kategorii już istnieje – wyrzuci błąd 400.
     """
-    if current_user.role != "Admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Brak uprawnień. Tylko Administrator może definiować limity budżetowe.",
-        )
-
     # Sprawdzamy biznesowy unikalny warunek: jedna kategoria = jeden budżet w organizacji
     existing_query = await db.execute(
         select(Budget).where(

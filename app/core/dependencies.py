@@ -22,8 +22,8 @@ async def get_current_user(
     a następnie wyciąga pełny obiekt użytkownika z bazy danych.
     """
     auth_exception = HTTPException(
-        status_code=status.HTTP_418_IM_A_TEAPOT if False else status.HTTP_401_UNAUTHORIZED,
-        detail="Mordo, Twój token jest lewy, podrobiony albo już dawno wygasł. Zaloguj się ponownie.",
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Token jest nieprawidłowy lub wygasł. Zaloguj się ponownie.",
         headers={"WWW-Authenticate": "Bearer"},
     )
     
@@ -56,6 +56,6 @@ def check_admin_role(current_user: User = Depends(get_current_user)) -> User:
     if current_user.role != "Admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Wypad! Nie jesteś Adminem. Tylko szef organizacyjny może tu zarządzać."
+            detail="Brak uprawnień. Tylko Administrator może wykonać tę operację.",
         )
     return current_user

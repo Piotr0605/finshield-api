@@ -5,9 +5,10 @@ from sqlalchemy.future import select
 
 from app.core.database import get_db
 from app.core.security import get_password_hash, verify_password, create_access_token
+from app.core.dependencies import check_admin_role
 from app.models.organization import Organization
 from app.models.user import User
-from app.schemas.user import UserOut
+from app.schemas.user import UserOut, EmployeeCreate
 from app.schemas.auth import RegisterCompanyRequest, TokenOut
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -51,6 +52,34 @@ async def register_company(payload: RegisterCompanyRequest, db: AsyncSession = D
     await db.commit()
     await db.refresh(new_user)
     
+    return new_user
+
+
+@router.post(
+    "/register-employee",
+    response_model=UserOut,
+    status_code=status.HTTP_201_CREATED,
+    responses={403: {"description": "Brak uprawnień — tylko Admin może dodawać pracowników"}},
+)
+async def register_employee(
+    payload: EmployeeCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(check_admin_role),
+):
+    """Tworzy konto pracownika (Employee) w organizacji zalogowanego administratora."""
+    existing_user = await db.execute(select(User).where(User.email == payload.email))
+    if existing_user.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Użytkownik o podanym adresie email już istnieje.")
+
+    new_user = User(
+        email=payload.email,
+        hashed_password=get_password_hash(payload.password),
+        role="Employee",
+        organization_id=current_user.organization_id,
+    )
+    db.add(new_user)
+    await db.commit()
+    await db.refresh(new_user)
     return new_user
 
 

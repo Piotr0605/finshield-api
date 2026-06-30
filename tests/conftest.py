@@ -7,6 +7,8 @@ from httpx import ASGITransport, AsyncClient
 from app.core.database import engine
 from app.main import app
 
+TEST_PASSWORD = "SuperTajneHaslo123!"
+
 
 @pytest.fixture(autouse=True)
 async def dispose_db_engine() -> AsyncGenerator[None, None]:
@@ -17,7 +19,6 @@ async def dispose_db_engine() -> AsyncGenerator[None, None]:
 
 @pytest.fixture
 async def client() -> AsyncGenerator[AsyncClient, None]:
-    """Tworzy asynchronicznego klienta HTTP połączonego z aplikacją FastAPI."""
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as ac:
         yield ac
@@ -25,35 +26,51 @@ async def client() -> AsyncGenerator[AsyncClient, None]:
 
 @pytest.fixture
 async def async_client(client: AsyncClient) -> AsyncClient:
-    """Alias dla testów wydatków – ten sam klient HTTP co fixture `client`."""
     return client
+
+
+async def _register_company(client: AsyncClient, unique_id: str) -> tuple[str, str]:
+    """Rejestruje firmę i zwraca (email, hasło)."""
+    email = f"test_{unique_id}@example.com"
+    response = await client.post(
+        "/auth/register-company",
+        json={
+            "company_data": {"name": f"Test Firma {unique_id} Sp. z o.o."},
+            "user_data": {"email": email, "password": TEST_PASSWORD},
+        },
+    )
+    assert response.status_code == 201
+    return email, TEST_PASSWORD
+
+
+async def _login(client: AsyncClient, email: str, password: str) -> dict[str, str]:
+    response = await client.post("/auth/login", data={"username": email, "password": password})
+    assert response.status_code == 200
+    token = response.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
 
 
 @pytest.fixture
 async def auth_headers(client: AsyncClient) -> dict[str, str]:
-    """Rejestruje unikalną firmę i zwraca nagłówek Authorization z tokenem JWT."""
+    """Rejestruje unikalną firmę (Admin) i zwraca nagłówek Authorization."""
     unique_id = uuid.uuid4().hex[:6]
-    password = "SuperTajneHaslo123!"
+    email, password = await _register_company(client, unique_id)
+    return await _login(client, email, password)
 
-    register_response = await client.post(
-        "/auth/register-company",
-        json={
-            "company_data": {"name": f"Test Firma {unique_id} Sp. z o.o."},
-            "user_data": {
-                "email": f"test_{unique_id}@example.com",
-                "password": password,
-                "role": "Admin",
-                "organization_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-            },
-        },
+
+@pytest.fixture
+async def employee_auth_headers(client: AsyncClient, auth_headers: dict[str, str]) -> dict[str, str]:
+    """Tworzy pracownika w organizacji Admina i zwraca jego token."""
+    unique_id = uuid.uuid4().hex[:6]
+    employee_email = f"employee_{unique_id}@example.com"
+    employee_password = "EmployeeHaslo123!"
+
+    create_response = await client.post(
+        "/auth/register-employee",
+        json={"email": employee_email, "password": employee_password},
+        headers=auth_headers,
     )
-    assert register_response.status_code == 201
+    assert create_response.status_code == 201
+    assert create_response.json()["role"] == "Employee"
 
-    login_response = await client.post(
-        "/auth/login",
-        data={"username": f"test_{unique_id}@example.com", "password": password},
-    )
-    assert login_response.status_code == 200
-
-    token = login_response.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
+    return await _login(client, employee_email, employee_password)

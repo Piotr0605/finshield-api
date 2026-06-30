@@ -16,6 +16,18 @@ class UserCreate(UserBase):
     )
 
 
+class RegisterUserCreate(BaseModel):
+    """Dane użytkownika przy zakładaniu nowej firmy — rola Admin jest nadawana automatycznie."""
+    email: EmailStr
+    password: str = Field(..., min_length=8, max_length=100, description="Hasło pierwszego administratora")
+
+
+class EmployeeCreate(BaseModel):
+    """Dane nowego pracownika zapraszanego przez Admina."""
+    email: EmailStr
+    password: str = Field(..., min_length=8, max_length=100)
+
+
 # To zwraca API (Zauważ: BEZWZGLĘDNY BRAK HASŁA W OUTPUT-IE!)
 class UserOut(UserBase):
     id: uuid.UUID
