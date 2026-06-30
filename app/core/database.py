@@ -2,6 +2,7 @@ from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from app.core.config import settings
 
+
 # 1. Tworzymy asynchroniczny silnik bazy danych (Engine)
 engine = create_async_engine(
     settings.DATABASE_URL,

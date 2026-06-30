@@ -7,20 +7,28 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 
-# ================= 🧠 AUDYT ARCHITEKTA 🧠 =================
-# 1. Pobieramy instancję ustawień z Pydantica (Single Source of Truth)
-from app.core.config import settings
+import asyncio
+from logging.config import fileConfig
 
-# 2. Importujemy klasę Base ORAZ WSZYSTKIE MODELE.
-# Jeśli zapomnisz o jakimkolwiek modelu, Alembic go nie wykryje w autogenerate!
+from sqlalchemy import pool
+from sqlalchemy.engine import Connection
+from sqlalchemy.ext.asyncio import async_engine_from_config
+
+from alembic import context
+
+# ================= 🧠 AUDYT ARCHITEKTA 🧠 =================
+from app.core.config import settings
 from app.models.base import Base
+
+# Importujemy wszystkie modele, żeby Alembic widział je w --autogenerate
 from app.models.organization import Organization
-from app.models.user import User
-from app.models.expense import Expense
+from app.models.user import User         
+from app.models.expense import Expense   
+from app.models.budget import Budget     
 # ==========================================================
 
-# this is the Alembic Config object, which provides
-# access to the values within the .ini file in use.
+# ... (reszta pliku env.py na dole zostaje dokładnie tak, jak miałeś)
+
 config = context.config
 
 # 🔥 DYNAMICZNE WSTRZYKNIĘCIE URL BAZY Z .ENV POPRZEZ PYDANTIC
