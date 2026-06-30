@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from decimal import Decimal
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
@@ -76,7 +77,7 @@ async def create_expense(
                 Expense.category == expense_data.category
             )
         )
-        current_spent = current_spent_query.scalar() or 0.00
+        current_spent = current_spent_query.scalar() or Decimal("0.00")
 
         # 3. Sprawdzamy, czy nowy wydatek wepchnie nas pod lód
         if current_spent + expense_data.amount > budget.limit_amount:
