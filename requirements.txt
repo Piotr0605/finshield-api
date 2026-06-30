@@ -1,0 +1,15 @@
+# Runtime dependencies (generated from project venv)
+fastapi==0.128.8
+uvicorn[standard]==0.39.0
+sqlalchemy==2.0.51
+asyncpg==0.31.0
+pydantic==2.13.4
+pydantic-settings==2.11.0
+httpx==0.28.1
+alembic==1.16.5
+bcrypt==5.0.0
+PyJWT==2.13.0
+python-multipart==0.0.20
+email-validator==2.3.0
+python-dotenv==1.2.1
+greenlet==3.2.5
