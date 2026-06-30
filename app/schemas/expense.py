@@ -49,9 +49,9 @@ class ExpenseSummaryOut(BaseModel):
     model_config = {"from_attributes": True}
 
 class ExpenseUpdate(BaseModel):
-    title: Optional[str] = None
-    amount: Optional[Decimal] = None
-    category: Optional[str] = None
+    title: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    amount: Optional[Decimal] = Field(default=None, gt=0, decimal_places=2)
+    category: Optional[str] = Field(default=None, min_length=1, max_length=100)
 
     model_config = {
         "json_schema_extra": {

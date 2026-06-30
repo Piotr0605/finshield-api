@@ -13,6 +13,7 @@ SWAGGER_DESCRIPTION = """
 4. **Budżety** — tylko rola **Admin** może wywołać `POST /budgets/`.
 5. **Wydatki** — `PATCH`/`DELETE` wymagają UUID z `GET /expenses/` (nie używaj `1` jako ID).
 6. **Employee** — może edytować/usuwać wyłącznie własne wydatki; Admin ma pełny dostęp w organizacji.
+7. **Pracownicy** — Admin może dodać pracownika przez `POST /auth/register-employee`.
 """
 
 app = FastAPI(
@@ -25,7 +26,7 @@ app = FastAPI(
 # Konfiguracja CORS – pozwala frontendowi rozmawiać z backendem
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

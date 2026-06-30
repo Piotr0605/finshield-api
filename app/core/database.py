@@ -6,8 +6,8 @@ from app.core.config import settings
 # 1. Tworzymy asynchroniczny silnik bazy danych (Engine)
 engine = create_async_engine(
     settings.DATABASE_URL,
-    echo=True,  # Loguje każdy wygenerowany czysty SQL do terminala – pokochasz to przy debugowaniu
-    future=True
+    echo=settings.SQL_ECHO,
+    future=True,
 )
 
 # 2. Tworzymy fabrykę asynchronicznych sesji

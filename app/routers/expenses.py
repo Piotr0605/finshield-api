@@ -3,7 +3,7 @@ from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.future import select
 from decimal import Decimal
-from datetime import date
+from datetime import date, timedelta
 from uuid import UUID
 from typing import Annotated, Optional
 from app.schemas.expense import ExpenseUpdate
@@ -161,7 +161,8 @@ async def list_expenses(
     if start_date is not None:
         query = query.where(Expense.created_at >= start_date)
     if end_date is not None:
-        query = query.where(Expense.created_at <= end_date)
+        # Uwzględnij cały dzień końcowy (created_at to datetime z godziną)
+        query = query.where(Expense.created_at < end_date + timedelta(days=1))
 
     query = query.order_by(Expense.created_at.desc()).limit(limit).offset(offset)
 
