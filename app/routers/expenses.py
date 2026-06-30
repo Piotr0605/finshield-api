@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, status, HTTPException, BackgroundTasks, Path
+from fastapi import APIRouter, Depends, status, HTTPException, BackgroundTasks, Path, Query
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.future import select
 from decimal import Decimal
+from datetime import date
 from uuid import UUID
-from typing import Annotated
+from typing import Annotated, Optional
 from app.schemas.expense import ExpenseUpdate
 import logging
 
@@ -146,13 +147,25 @@ async def create_expense(
 @router.get("/", response_model=list[ExpenseOut])
 async def list_expenses(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    limit: int = Query(default=20, ge=1, le=100, description="Liczba rekordów do pobrania"),
+    offset: int = Query(default=0, ge=0, description="Liczba rekordów do pominięcia"),
+    category: Optional[str] = Query(default=None, description="Filtruj po kategorii wydatku"),
+    start_date: Optional[date] = Query(default=None, description="Filtruj wydatki od tej daty (YYYY-MM-DD)"),
+    end_date: Optional[date] = Query(default=None, description="Filtruj wydatki do tej daty (YYYY-MM-DD)"),
 ):
-    result = await db.execute(
-        select(Expense)
-        .where(Expense.organization_id == current_user.organization_id)
-        .order_by(Expense.created_at.desc())
-    )
+    query = select(Expense).where(Expense.organization_id == current_user.organization_id)
+
+    if category is not None:
+        query = query.where(Expense.category == category)
+    if start_date is not None:
+        query = query.where(Expense.created_at >= start_date)
+    if end_date is not None:
+        query = query.where(Expense.created_at <= end_date)
+
+    query = query.order_by(Expense.created_at.desc()).limit(limit).offset(offset)
+
+    result = await db.execute(query)
     return result.scalars().all()
 
 # ==================== MIGRACJA / EDYCJA / USYWANIE ====================
